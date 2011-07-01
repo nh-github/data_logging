@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import datetime
 import matplotlib
 matplotlib.use('WXAgg')
 import matplotlib.cm as cm
@@ -24,7 +25,8 @@ class PlotPanel(wx.Panel):
         wx.Panel.__init__(self, parent, -1)
 
         #self.fig = Figure((5,4), 75)
-        self.fig = Figure((2,2), 125)
+        self.fig = Figure(figsize=(3.75,2.75), dpi=100)
+
         self.canvas = FigureCanvasWxAgg(self, -1, self.fig)
         #self.toolbar = Toolbar(self.canvas) #matplotlib toolbar
         #self.toolbar.Realize()
@@ -47,17 +49,32 @@ class PlotPanel(wx.Panel):
 
         timeStart=time.clock()
 
-        self.mouseT = [0,time.clock()]
-        self.mouseX = [0,0]
-        self.mouseY = [0,0]
+        #self.mouseT = [0,time.clock()]
+        #self.mouseX = [0,0]
+        #self.mouseY = [0,0]
 
-        self.x = [0,0]
-        self.y = [0,0]
+        self.data = {}
+        self.data['mx'] = {'time':[0,time.clock()],'val':[0,0.0]}
+        self.data['my'] = {'time':[0,time.clock()],'val':[0,0.0]}
+        self.data['x'] = {'time':[0,time.clock()],'val':[0,0.0]}
+        self.data['y'] = {'time':[0,time.clock()],'val':[0,0.0]}
+        self.data['z'] = {'time':[0,time.clock()],'val':[0,0.0]}
+        #self.T = [0,time.clock()]
+        #self.x = [0,0]
+        #self.y = [0,0]
+        #self.z = [0,0]
 
         self.axes.autoscale(enable=False)
-        self.axes.plot(self.mouseT,self.mouseX)
-        self.axes.plot(self.mouseT,self.mouseY)
-        self.axes.set_xlim((self.mouseT[0], self.mouseT[-1]))
+        #self.axes.plot(self.mouseT,self.mouseX)
+        #self.axes.plot(self.mouseT,self.mouseY)
+        maxTime = 0
+        for key in self.data.keys():
+            x = self.data[key]['time']
+            y = self.data[key]['val']
+            self.axes.plot(x,y)
+            if x[-1] > maxTime:
+                maxTime = x[-1]
+        self.axes.set_xlim((maxTime-5, maxTime))
         self.axes.set_ylim((-2, 2))
 
         #self.canvas = FigureCanvas(self, -1, self.figure)
@@ -90,25 +107,32 @@ class PlotPanel(wx.Panel):
         #self.frame.Destroy()
         event.Skip()
 
-    def mousify(self, event):
-        #print 'mouse'
-        #print time.clock(), -1*event.GetPositionTuple()[1]/100.0+2
-        #print time.clock(), event.GetPosition()[0]/200.0
-        self.mouseT.append(time.clock())
-        self.mouseX.append(-1*event.GetPositionTuple()[0]/100.0+2)
-        self.mouseY.append(-1*event.GetPositionTuple()[1]/100.0+2)
-
     def update_plot(self, idleevent):
-        self.mouseT.append(time.clock())
-        self.mouseX.append(self.mouseX[-1])
-        self.mouseY.append(self.mouseY[-1])
 
+        #extend traces
+        for key in self.data.keys():
+            self.data[key]['time'].append(time.clock())
+            self.data[key]['val'].append( self.data[key]['val'][-1])
+
+        #plot extended traces
         self.axes.clear()
-        self.axes.plot(self.mouseT,self.mouseX)
-        self.axes.plot(self.mouseT,self.mouseY)
-        self.axes.set_xlim((time.clock()-5,time.clock()))
+        maxTime = 0
+        for key in self.data.keys():
+            x = self.data[key]['time']
+            y = self.data[key]['val']
+            self.axes.plot(x,y)
+            if x[-1] > maxTime:
+                maxTime = x[-1]
+        self.axes.set_xlim((maxTime-5, maxTime))
         self.axes.set_ylim((-2, 2))
+
         self.canvas.draw()
+
+    def mousify(self, event):
+        self.data['mx']['time'].append(time.clock())
+        self.data['mx']['val'].append(-1*event.GetPositionTuple()[0]/100.0+2)
+        self.data['my']['time'].append(time.clock())
+        self.data['my']['val'].append(-1*event.GetPositionTuple()[1]/100.0+2)
 
 
 class MyApp(wx.App):
@@ -116,6 +140,16 @@ class MyApp(wx.App):
     def OnInit(self):
         self.res = xrc.XmlResource('xrc_test.xrc')
         self.InitFrame()
+
+        self.recFlag = False
+        self.recFile = None
+        self.data = {}#use a dictionary of paired lists
+        # data := (trace) *
+        # trace := time [], val []
+        # time := (timeN)*
+        # val := (valN)*
+        # timeN := float
+        # valN := float
 
         #wx.PostEvent(self.panel, wx.EVT_SIZE())
         return True
@@ -139,7 +173,6 @@ class MyApp(wx.App):
 
         self.dir_path = xrc.XRCCTRL(self.panel, 'dir_path')
 
-
         #assemble plot
         self.plot_container = xrc.XRCCTRL(self.frame,"plotspace")
         self.plot_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -151,6 +184,13 @@ class MyApp(wx.App):
         # wx boilerplate
         self.plot_sizer.Add(self.plotpanel, 1, wx.EXPAND)
         self.plot_container.SetSizer(self.plot_sizer)
+
+        #timer for dummy data updates
+        id = wx.NewId()
+        actor = self
+        self.timer = wx.Timer(actor, id=id)
+        self.timer.Start(500)
+        wx.EVT_TIMER(actor, id, self.OnData)
 
         self.statusBar.SetStatusText('attach accel., select directory, record')
         self.frame.Show(1)
@@ -165,19 +205,46 @@ class MyApp(wx.App):
         self.frame.Bind(wx.EVT_MENU, self.OnRec, id=xrc.XRCID("recMenu"))
         self.frame.Bind(wx.EVT_MENU, self.OnDir, id=xrc.XRCID("dirMenu"))
 
+    def InitData(self):
+        """
+        prep data structure / get initial data values
+        """
+        self.plotpanel.data = {'test':{'time':[0,time.clock()],'val':[0,0]}}
+        # data := (trace) *
+        # trace := {time [], val []}
+        # time := (timeN)*
+        # val := (valN)*
+        # timeN := float
+        # valN := float
+
     def OnQuit(self, event):
         #wx.MessageBox('Quit Button: %s' % (repr(event)))
         self.frame.Close(True)
 
     def OnRec(self, event):
-        a = event.IsChecked()
-        #wx.MessageBox('Record Button: %s, %s' % (type(a),repr(a)))
-        #b = self.dir_path.GetString(0,-1)
-        #wx.MessageBox('Record Button: %s, %s' % (type(b),b))
-        if a:
-            self.statusBar.SetStatusText("recording")
-        else:
+        """
+        This is the event handler for the record button/menu entry
+
+        It would be nice to change the color of the button while refording
+        for now, set a flag for record or not and calculate a filename
+        """
+        if self.recFlag:
+            self.recFile.close()
+            self.recFlag = False
             self.statusBar.SetStatusText("idle")
+            self.recButton.SetValue(False)
+        else:
+            dataDir = self.dir_path.GetString(0,-1)
+            if not os.path.isdir(dataDir):
+                self.statusBar.SetStatusText("directory is not valid")
+                return
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+            dataFile = "capture-%s.txt"%(timestamp)
+            dataPath = os.path.join(dataDir,dataFile)
+            self.recFile = open(dataPath,'w')
+            self.recFlag = True
+            self.statusBar.SetStatusText("recording")
+            self.recButton.SetValue(True)
 
     def OnDir(self, event):
         dlg = wx.DirDialog(self.frame, "Choose a directory:",
@@ -194,6 +261,11 @@ class MyApp(wx.App):
         #wx.MessageBox('Record Button: %s, %s' % (type(a),repr(a)))
         #b = self.dir_path.GetString(0,-1)
         #wx.MessageBox('Record Button: %s, %s' % (type(b),b))
+
+    def OnData(self, event):
+        pass
+        #self.plotpanel.data['test']['time'].append(time.clock())
+        #self.plotpanel.data['test']['val'].append(time.clock())
 
 if __name__ == '__main__':
     app = MyApp(0)
