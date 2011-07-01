@@ -19,35 +19,12 @@ from wx.lib import  filebrowsebutton
 ERR_TOL = 1e-5 # floating point slop for peak-detection
 
 
-# Define File Drop Target class
-class FileDropTarget(wx.FileDropTarget):
-    """ This object implements Drop Target functionality for Files """
-    def __init__(self, obj):
-        """ Initialize the Drop Target, passing in the Object Reference to
-            indicate what should receive the dropped files """
-        # Initialize the wxFileDropTarget Object
-        wx.FileDropTarget.__init__(self)
-        # Store the Object Reference for dropped files
-        self.obj = obj
-
-    def OnDropFiles(self, x, y, filenames):
-        """ Implement File Drop """
-        # For Demo purposes, this function appends a list of the files dropped at the end of the widget's text
-        # Move Insertion Point to the end of the widget's text
-        self.obj.SetInsertionPointEnd()
-        # append a list of the file names dropped
-        self.obj.WriteText("%d file(s) dropped at %d, %d:\n" % (len(filenames), x, y))
-        for file in filenames:
-            self.obj.WriteText(file + '\n')
-        self.obj.WriteText('\n')
-        print 'drop'
-
-
 class PlotPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent, -1)
 
-        self.fig = Figure((5,4), 75)
+        #self.fig = Figure((5,4), 75)
+        self.fig = Figure((2,2), 125)
         self.canvas = FigureCanvasWxAgg(self, -1, self.fig)
         #self.toolbar = Toolbar(self.canvas) #matplotlib toolbar
         #self.toolbar.Realize()
@@ -55,30 +32,45 @@ class PlotPanel(wx.Panel):
 
         # Now put all into a sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
+
         # This way of adding to sizer allows resizing
         #sizer.Add(self.canvas, 1, wx.LEFT|wx.TOP|wx.GROW)
-        sizer.Add(self.canvas, 1, wx.ALL|wx.GROW)
+        sizer.Add(self.canvas, 1, wx.ALL|wx.GROW|wx.ALIGN_CENTER_VERTICAL|
+                wx.ALIGN_CENTER_HORIZONTAL)
         # Best to allow the toolbar to resize!
         #sizer.Add(self.toolbar, 0, wx.GROW)
         self.SetSizer(sizer)
         self.Fit()
 
     def init_plot_data(self):
-        a = self.fig.add_subplot(111)
+        self.axes = self.fig.add_subplot(111)
 
-        x = np.arange(120.0)*2*np.pi/60.0
-        y = np.arange(100.0)*2*np.pi/50.0
-        self.x, self.y = np.meshgrid(x, y)
-        z = np.sin(self.x) + np.cos(self.y)
-        self.im = a.imshow( z, cmap=cm.jet)#, interpolation='nearest')
+        timeStart=time.clock()
 
-        zmax = np.amax(z) - ERR_TOL
-        ymax_i, xmax_i = np.nonzero(z >= zmax)
-        if self.im.origin == 'upper':
-            ymax_i = z.shape[0]-ymax_i
-        self.lines = a.plot(xmax_i,ymax_i,'ko')
+        self.mouseT = [0,time.clock()]
+        self.mouseX = [0,0]
+        self.mouseY = [0,0]
 
-        #self.toolbar.update() # Not sure why this is needed - ADS
+        self.x = [0,0]
+        self.y = [0,0]
+
+        self.axes.autoscale(enable=False)
+        self.axes.plot(self.mouseT,self.mouseX)
+        self.axes.plot(self.mouseT,self.mouseY)
+        self.axes.set_xlim((self.mouseT[0], self.mouseT[-1]))
+        self.axes.set_ylim((-2, 2))
+
+        #self.canvas = FigureCanvas(self, -1, self.figure)
+
+        wx.EVT_PAINT(self, self.OnPaint)
+
+        id = wx.NewId()
+        actor = self.canvas
+        self.timer = wx.Timer(actor, id=id)
+        self.timer.Start(25)
+        wx.EVT_TIMER(actor, id, self.update_plot)
+
+        wx.EVT_MOTION(self.canvas, self.mousify)
 
     def GetToolBar(self):
         # You will need to override GetToolBar if you are using an
@@ -89,21 +81,49 @@ class PlotPanel(wx.Panel):
         # this is supposed to prevent redraw flicker on some X servers...
         pass
 
+    def OnPaint(self, event):
+        self.canvas.draw()
+        event.Skip()
+
+    def on_close(self, event):
+        self.timer.Stop()
+        #self.frame.Destroy()
+        event.Skip()
+
+    def mousify(self, event):
+        #print 'mouse'
+        #print time.clock(), -1*event.GetPositionTuple()[1]/100.0+2
+        #print time.clock(), event.GetPosition()[0]/200.0
+        self.mouseT.append(time.clock())
+        self.mouseX.append(-1*event.GetPositionTuple()[0]/100.0+2)
+        self.mouseY.append(-1*event.GetPositionTuple()[1]/100.0+2)
+
+    def update_plot(self, idleevent):
+        self.mouseT.append(time.clock())
+        self.mouseX.append(self.mouseX[-1])
+        self.mouseY.append(self.mouseY[-1])
+
+        self.axes.clear()
+        self.axes.plot(self.mouseT,self.mouseX)
+        self.axes.plot(self.mouseT,self.mouseY)
+        self.axes.set_xlim((time.clock()-5,time.clock()))
+        self.axes.set_ylim((-2, 2))
+        self.canvas.draw()
+
 
 class MyApp(wx.App):
 
     def OnInit(self):
         self.res = xrc.XmlResource('xrc_test.xrc')
         self.InitFrame()
+
+        #wx.PostEvent(self.panel, wx.EVT_SIZE())
         return True
 
     def InitFrame(self):
         self.frame = self.res.LoadFrame(None, 'FRAME1')
         self.statusBar = self.frame.CreateStatusBar()
         self.panel = xrc.XRCCTRL(self.frame, 'panel1')
-        #self.text1 = xrc.XRCCTRL(self.panel, 'text1')
-        #self.text2 = xrc.XRCCTRL(self.panel, 'text2')
-        #self.frame.Bind(wx.EVT_BUTTON, self.OnSubmit, id=xrc.XRCID('button'))
 
         #menu(s)
         self.InitMenu()
