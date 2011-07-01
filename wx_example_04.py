@@ -66,7 +66,7 @@ class CanvasFrame(wx.Frame):
 
         self.figure = Figure(figsize=(5,4), dpi=100)
         self.axes = self.figure.add_subplot(111)
-        self.x = np.arange(0.0,1.0,0.01)
+        self.x = np.arange(0.0,2.0,0.01)
         self.y = np.sin(2*np.pi*self.x)
 
         self.axes.plot(self.x,self.y)
@@ -78,7 +78,16 @@ class CanvasFrame(wx.Frame):
         # Capture the paint message
         wx.EVT_PAINT(self, self.OnPaint)
 
-        wx.EVT_IDLE(self, self.update_plot)
+        id = wx.NewId()
+        #actor = self.figure.canvas.manager.frame
+        actor = self.canvas
+        self.timer = wx.Timer(actor, id=id)
+        self.timer.Start(50)
+        wx.EVT_TIMER(actor, id, self.update_plot)
+
+        wx.EVT_CLOSE(self.canvas, self.on_close)
+
+        #wx.EVT_IDLE(self, self.update_plot)
 
         self.toolbar = MyNavigationToolbar(self.canvas, True)
         self.toolbar.Realize()
@@ -107,6 +116,11 @@ class CanvasFrame(wx.Frame):
         self.canvas.draw()
         event.Skip()
 
+    def on_close(self, event):
+        self.timer.Stop()
+        #self.frame.Destroy()
+        event.Skip()
+
     def update_plot(self, idleevent):
         self.x += 0.1
         self.y = np.sin(2*np.pi*self.x)
@@ -114,16 +128,20 @@ class CanvasFrame(wx.Frame):
         self.axes.clear()
         self.axes.plot(self.x,self.y)
         self.canvas.draw()
+        #how to not autoscale x axis, and set it to [x.min(),x.max()]
 
+   
 
 class App(wx.App):
 
     def OnInit(self):
         'Create the main window and insert the custom frame'
-        frame = CanvasFrame()
-        frame.Show(True)
+        self.frame = CanvasFrame()
+        self.frame.Show(True)
 
         return True
+
+
 
 app = App(0)
 app.MainLoop()
