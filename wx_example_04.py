@@ -8,19 +8,20 @@ toolbar
 import wxversion
 wxversion.ensureMinimal('2.8')
 
-from numpy import arange, sin, pi
-import numpy as np
 
 import matplotlib
-
 matplotlib.use('WXAgg')
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg
 
 from matplotlib.backends.backend_wx import _load_bitmap
 from matplotlib.figure import Figure
+
+import numpy as np
+from numpy import arange, sin, pi
 from numpy.random import rand
 
+import time
 import wx
 
 class MyNavigationToolbar(NavigationToolbar2WxAgg):
@@ -62,14 +63,27 @@ class CanvasFrame(wx.Frame):
         wx.Frame.__init__(self,None,-1,
                          'CanvasFrame',size=(550,350))
 
+        timeStart=time.clock()
         self.SetBackgroundColour(wx.NamedColor("WHITE"))
 
         self.figure = Figure(figsize=(5,4), dpi=100)
         self.axes = self.figure.add_subplot(111)
-        self.x = np.arange(0.0,2.0,0.01)
-        self.y = np.sin(2*np.pi*self.x)
+        #self.x = np.arange(0.0,5.0,0.01)
+        #self.y = np.sin(2*np.pi*self.x)
 
-        self.axes.plot(self.x,self.y)
+        #self.mouseX = np.arange(0.0,0.1,0.1)
+        #self.mouseY = np.arange(0.0,0.1,0.1)
+        self.mouseT = [0,time.clock()]
+        self.mouseX = [0,0]
+        self.mouseY = [0,0]
+
+        self.axes.autoscale(enable=False)
+        #self.axes.plot(self.x,self.y)
+        #self.axes.set_xlim((self.x.min(), self.x.max()))
+        self.axes.plot(self.mouseT,self.mouseX)
+        self.axes.plot(self.mouseT,self.mouseY)
+        self.axes.set_xlim((self.mouseT[0], self.mouseT[-1]))
+        self.axes.set_ylim((-2, 2))
 
         self.canvas = FigureCanvas(self, -1, self.figure)
 
@@ -79,15 +93,24 @@ class CanvasFrame(wx.Frame):
         wx.EVT_PAINT(self, self.OnPaint)
 
         id = wx.NewId()
-        #actor = self.figure.canvas.manager.frame
         actor = self.canvas
         self.timer = wx.Timer(actor, id=id)
-        self.timer.Start(50)
+        self.timer.Start(25)
         wx.EVT_TIMER(actor, id, self.update_plot)
+
+        id = wx.NewId()
+        actor = self.canvas
+        self.timer2 = wx.Timer(actor, id=id)
+        self.timer2.Start(1000)
+        wx.EVT_TIMER(actor, id, self.print_update_rate)
 
         wx.EVT_CLOSE(self.canvas, self.on_close)
 
         #wx.EVT_IDLE(self, self.update_plot)
+
+        wx.EVT_MOTION(self.canvas, self.mousify)
+        #self.Bind(wx.EVT_MOTION, self.mousify)
+        #self.canvas.Bind(wx.EVT_MOTION, self.mousify)
 
         self.toolbar = MyNavigationToolbar(self.canvas, True)
         self.toolbar.Realize()
@@ -121,16 +144,42 @@ class CanvasFrame(wx.Frame):
         #self.frame.Destroy()
         event.Skip()
 
+    def mousify(self, event):
+        #print 'mouse'
+        #print time.clock(), -1*event.GetPositionTuple()[1]/100.0+2
+        #print time.clock(), event.GetPosition()[0]/200.0
+        self.mouseT.append(time.clock())
+        self.mouseX.append(-1*event.GetPositionTuple()[0]/100.0+2)
+        self.mouseY.append(-1*event.GetPositionTuple()[1]/100.0+2)
+
     def update_plot(self, idleevent):
-        self.x += 0.1
-        self.y = np.sin(2*np.pi*self.x)
+        #print 'plot update'
+        #self.x += 0.2
+        #self.y = np.sin(2*np.pi*self.x)
+
+        self.mouseT.append(time.clock())
+        self.mouseX.append(self.mouseX[-1])
+        self.mouseY.append(self.mouseY[-1])
 
         self.axes.clear()
-        self.axes.plot(self.x,self.y)
+        #self.axes.plot(self.x,self.y)
+        self.axes.plot(self.mouseT,self.mouseX)
+        self.axes.plot(self.mouseT,self.mouseY)
+        #self.axes.set_xlim((self.mouseT[0], self.mouseT[-1]))
+        self.axes.set_xlim((time.clock()-5,time.clock()))
+        self.axes.set_ylim((-2, 2))
         self.canvas.draw()
-        #how to not autoscale x axis, and set it to [x.min(),x.max()]
 
-   
+        #print self.mouseT
+
+    def print_update_rate(self, event):
+        traceTime = self.mouseT[-1] - self.mouseT[0]
+        traceLength = len(self.mouseT)
+        longSampleRate = traceLength / traceTime
+        sampleRate = 1.0/(self.mouseT[-1]-self.mouseT[-2])
+        sampleRate2 = 5.0/(self.mouseT[-1]-self.mouseT[-6])
+        print "T: %.3f, #pts: %d, avg S/s: %.3f, S/s: %.3f"%(
+            traceTime, traceLength, longSampleRate, sampleRate2)
 
 class App(wx.App):
 
