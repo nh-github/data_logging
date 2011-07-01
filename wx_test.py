@@ -26,6 +26,7 @@ from matplotlib.backends.backend_wx import NavigationToolbar2Wx
 from matplotlib.figure import Figure
 #from wx import *
 
+import pylab
 import wx
 
 
@@ -62,16 +63,22 @@ class PlotFigure(wx.Frame):
     def init_plot_data(self):
         # jdh you can add a subplot directly from the fig rather than
         # the fig manager
-        a = self.fig.add_axes([0.075,0.1,0.75,0.85])
+        self.ax = self.fig.add_axes([0.075,0.1,0.75,0.85])
         cax = self.fig.add_axes([0.85,0.1,0.075,0.85])
-        self.x = npy.empty((120,120))
-        self.x.flat = npy.arange(120.0)*2*npy.pi/120.0
-        self.y = npy.empty((120,120))
-        self.y.flat = npy.arange(120.0)*2*npy.pi/100.0
-        self.y = npy.transpose(self.y)
-        z = npy.sin(self.x) + npy.cos(self.y)
-        self.im = a.imshow( z, cmap=cm.jet)#, interpolation='nearest')
-        self.fig.colorbar(self.im,cax=cax,orientation='vertical')
+        #self.x = npy.empty((120,120))
+        #self.x.flat = npy.arange(120.0)*2*npy.pi/120.0
+        #self.y = npy.empty((120,120))
+        #self.y.flat = npy.arange(120.0)*2*npy.pi/100.0
+        #self.y = npy.transpose(self.y)
+        #z = npy.sin(self.x) + npy.cos(self.y)
+        #self.im = a.imshow( z, cmap=cm.jet)#, interpolation='nearest')
+        #self.x = npy.arange(100)
+        self.x = npy.arange(0,1,0.01)
+
+        self.y = npy.cos(2*npy.pi*self.x)
+        #self.im = self.a.plot(self.x,self.y)
+        self.dataplot , = pylab.plot(self.x, npy.sin(self.x), animated=True, lw=2)
+        #self.fig.colorbar(self.im,cax=cax,orientation='vertical')
 
     def GetToolBar(self):
         # You will need to override GetToolBar if you are using an
@@ -79,10 +86,14 @@ class PlotFigure(wx.Frame):
         return self.toolbar
 
     def onTimer(self, evt):
-        self.x += npy.pi/15
-        self.y += npy.pi/20
-        z = npy.sin(self.x) + npy.cos(self.y)
-        self.im.set_array(z)
+        return
+        #self.x += npy.pi/15
+        #self.y += npy.pi/20
+        #z = npy.sin(self.x) + npy.cos(self.y)
+        #self.im.set_array(z)
+        self.x += 10
+        self.y = npy.cos(2*npy.pi*self.x)
+        self.dataplot  
         self.canvas.draw()
         #self.canvas.gui_repaint()  # jdh wxagg_draw calls this already
 
