@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resource>
+  <object class="wxFrame" name="mainFrame">
+    <title>Test Frame</title>
+    <object class="wxPanel" name="panel">
+      <object class="wxButton" name="button">
+        <label>Submit</label>
+      </object>
+    </object>
+  </object>
+</resource>
