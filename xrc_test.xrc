@@ -1,10 +1,50 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <resource>
-  <object class="wxFrame" name="mainFrame">
-    <title>Test Frame</title>
-    <object class="wxPanel" name="panel">
-      <object class="wxButton" name="button">
-        <label>Submit</label>
+  <object class="wxFrame" name="FRAME1">
+    <title>Accelerometer Logging</title>
+    <size>400,400</size>
+    <object class="wxPanel" name="panel1">
+      <object class="wxBoxSizer">
+        <orient>wxVERTICAL</orient>
+        <object class="sizeritem">
+          <object class="wxBoxSizer">
+            <orient>wxHORIZONTAL</orient>
+            <object class="sizeritem">
+              <object class="wxButton" name="quitBut">
+                <label>quit</label>
+              </object>
+              <flag>wxALL|wxEXPAND|wxGROW</flag>
+              <border>5</border>
+              <ratio>0</ratio>
+            </object>
+            <object class="sizeritem">
+              <object class="wxToggleButton" name="recBut">
+                <label>record</label>
+              </object>
+              <flag>wxALL|wxEXPAND|wxGROW</flag>
+              <border>5</border>
+              <ratio>0</ratio>
+            </object>
+            <object class="sizeritem">
+              <object class="wxTextCtrl" name="dir_path"/>
+              <option>1</option>
+              <flag>wxALL|wxEXPAND|wxGROW</flag>
+              <border>5</border>
+              <ratio>1</ratio>
+            </object>
+          </object>
+          <flag>wxEXPAND|wxGROW</flag>
+          <ratio>0</ratio>
+        </object>
+        <object class="sizeritem">
+          <object class="wxPanel" name="plotspace">
+            <style>wxSUNKEN_BORDER</style>
+          </object>
+          <option>1</option>
+          <flag>wxALL|wxEXPAND|wxGROW|wxALIGN_CENTRE_VERTICAL|wxALIGN_CENTRE_HORIZONTAL</flag>
+          <border>5</border>
+          <ratio>1</ratio>
+        </object>
       </object>
     </object>
   </object>
