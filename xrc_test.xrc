@@ -55,5 +55,26 @@
         </object>
       </object>
     </object>
+    <object class="wxMenuBar">
+      <object class="wxMenu" name="fileMenu">
+        <label>File</label>
+        <object class="wxMenuItem" name="dirMenu">
+          <label>Output Dir</label>
+          <bitmap stock_id="wxART_FOLDER"></bitmap>
+          <accel>ctrl-d</accel>
+        </object>
+        <object class="wxMenuItem" name="recMenu">
+          <label>Record</label>
+          <bitmap stock_id="wxART_EXECUTABLE_FILE"></bitmap>
+          <accel>ctrl-r</accel>
+          <checkable>1</checkable>
+        </object>
+        <object class="wxMenuItem" name="quitMenu">
+          <label>Quit</label>
+          <bitmap stock_id="wxART_QUIT"></bitmap>
+          <accel>ctrl-q</accel>
+        </object>
+      </object>
+    </object>
   </object>
 </resource>

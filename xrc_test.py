@@ -6,7 +6,7 @@ import matplotlib.cm as cm
 import matplotlib.cbook as cbook
 from matplotlib.backends.backend_wxagg import Toolbar, FigureCanvasWxAgg
 from matplotlib.figure import Figure
-import numpy as npy
+import numpy as np
 
 import os
 import sys
@@ -66,14 +66,14 @@ class PlotPanel(wx.Panel):
     def init_plot_data(self):
         a = self.fig.add_subplot(111)
 
-        x = npy.arange(120.0)*2*npy.pi/60.0
-        y = npy.arange(100.0)*2*npy.pi/50.0
-        self.x, self.y = npy.meshgrid(x, y)
-        z = npy.sin(self.x) + npy.cos(self.y)
+        x = np.arange(120.0)*2*np.pi/60.0
+        y = np.arange(100.0)*2*np.pi/50.0
+        self.x, self.y = np.meshgrid(x, y)
+        z = np.sin(self.x) + np.cos(self.y)
         self.im = a.imshow( z, cmap=cm.jet)#, interpolation='nearest')
 
-        zmax = npy.amax(z) - ERR_TOL
-        ymax_i, xmax_i = npy.nonzero(z >= zmax)
+        zmax = np.amax(z) - ERR_TOL
+        ymax_i, xmax_i = np.nonzero(z >= zmax)
         if self.im.origin == 'upper':
             ymax_i = z.shape[0]-ymax_i
         self.lines = a.plot(xmax_i,ymax_i,'ko')
@@ -94,16 +94,23 @@ class MyApp(wx.App):
 
     def OnInit(self):
         self.res = xrc.XmlResource('xrc_test.xrc')
-        self.init_frame()
+        self.InitFrame()
         return True
 
-    def init_frame(self):
+    def InitFrame(self):
         self.frame = self.res.LoadFrame(None, 'FRAME1')
+        self.statusBar = self.frame.CreateStatusBar()
         self.panel = xrc.XRCCTRL(self.frame, 'panel1')
         #self.text1 = xrc.XRCCTRL(self.panel, 'text1')
         #self.text2 = xrc.XRCCTRL(self.panel, 'text2')
         #self.frame.Bind(wx.EVT_BUTTON, self.OnSubmit, id=xrc.XRCID('button'))
+
+        #menu(s)
+        self.InitMenu()
+
+        #buttons / controls
         self.quitButton = xrc.XRCCTRL(self.panel, 'quitBut')
+        self.quitButton.SetForegroundColour("blue")
         self.recButton = xrc.XRCCTRL(self.panel, 'recBut')
         self.dirButton = xrc.XRCCTRL(self.panel, 'dirBut')
         self.frame.Bind(wx.EVT_BUTTON, self.OnQuit, self.quitButton)
@@ -125,8 +132,18 @@ class MyApp(wx.App):
         self.plot_sizer.Add(self.plotpanel, 1, wx.EXPAND)
         self.plot_container.SetSizer(self.plot_sizer)
 
+        self.statusBar.SetStatusText('attach accel., select directory, record')
         self.frame.Show(1)
         self.SetTopWindow(self.frame)
+
+    def InitMenu(self):
+        """
+        setup any/all menus from XRC file
+        ref: http://wiki.wxpython.org/UsingXmlResources
+        """
+        self.frame.Bind(wx.EVT_MENU, self.OnQuit, id=xrc.XRCID("quitMenu"))
+        self.frame.Bind(wx.EVT_MENU, self.OnRec, id=xrc.XRCID("recMenu"))
+        self.frame.Bind(wx.EVT_MENU, self.OnDir, id=xrc.XRCID("dirMenu"))
 
     def OnQuit(self, event):
         #wx.MessageBox('Quit Button: %s' % (repr(event)))
@@ -135,8 +152,12 @@ class MyApp(wx.App):
     def OnRec(self, event):
         a = event.IsChecked()
         #wx.MessageBox('Record Button: %s, %s' % (type(a),repr(a)))
-        b = self.dir_path.GetString(0,-1)
-        wx.MessageBox('Record Button: %s, %s' % (type(b),b))
+        #b = self.dir_path.GetString(0,-1)
+        #wx.MessageBox('Record Button: %s, %s' % (type(b),b))
+        if a:
+            self.statusBar.SetStatusText("recording")
+        else:
+            self.statusBar.SetStatusText("idle")
 
     def OnDir(self, event):
         dlg = wx.DirDialog(self.frame, "Choose a directory:",
