@@ -49,26 +49,24 @@ class PlotPanel(wx.Panel):
 
         timeStart=time.clock()
 
-        #self.mouseT = [0,time.clock()]
-        #self.mouseX = [0,0]
-        #self.mouseY = [0,0]
-
-        self.data = {}
+        self.data = {}#use a dictionary of paired lists
+        # data := (trace|metadata) *
+        # trace := time [], val []
+        # time := (timeN)*
+        # val := (valN)*
+        # timeN := float
+        # valN := float
+        self.data['meta'] = {'saveFlag':False,'dataPath':None,'fileHandle':None}
         self.data['mx'] = {'time':[0,time.clock()],'val':[0,0.0]}
         self.data['my'] = {'time':[0,time.clock()],'val':[0,0.0]}
         self.data['x'] = {'time':[0,time.clock()],'val':[0,0.0]}
         self.data['y'] = {'time':[0,time.clock()],'val':[0,0.0]}
         self.data['z'] = {'time':[0,time.clock()],'val':[0,0.0]}
-        #self.T = [0,time.clock()]
-        #self.x = [0,0]
-        #self.y = [0,0]
-        #self.z = [0,0]
 
         self.axes.autoscale(enable=False)
-        #self.axes.plot(self.mouseT,self.mouseX)
-        #self.axes.plot(self.mouseT,self.mouseY)
         maxTime = 0
         for key in self.data.keys():
+            if 'meta' == key: continue
             x = self.data[key]['time']
             y = self.data[key]['val']
             self.axes.plot(x,y)
@@ -111,6 +109,7 @@ class PlotPanel(wx.Panel):
 
         #extend traces
         for key in self.data.keys():
+            if 'meta' == key: continue
             self.data[key]['time'].append(time.clock())
             self.data[key]['val'].append( self.data[key]['val'][-1])
 
@@ -118,6 +117,7 @@ class PlotPanel(wx.Panel):
         self.axes.clear()
         maxTime = 0
         for key in self.data.keys():
+            if 'meta' == key: continue
             x = self.data[key]['time']
             y = self.data[key]['val']
             self.axes.plot(x,y)
@@ -129,11 +129,20 @@ class PlotPanel(wx.Panel):
         self.canvas.draw()
 
     def mousify(self, event):
-        self.data['mx']['time'].append(time.clock())
-        self.data['mx']['val'].append(-1*event.GetPositionTuple()[0]/100.0+2)
-        self.data['my']['time'].append(time.clock())
-        self.data['my']['val'].append(-1*event.GetPositionTuple()[1]/100.0+2)
+        t = time.clock()
+        xpos = -1*event.GetPositionTuple()[0]/100.0+2
+        ypos = -1*event.GetPositionTuple()[1]/100.0+2
+        self.data['mx']['time'].append(t)
+        self.data['mx']['val'].append(xpos)
+        self.data['my']['time'].append(t)
+        self.data['my']['val'].append(ypos)
 
+        if self.data['meta']['saveFlag']:
+            fH = self.data['meta']['fileHandle']
+            if 0 == fH.tell():
+                #file is empty, write header
+                header = "datafile with mouse data\n--\nT,X,T,Y\n"
+            fH.write("%.3f,%.3f,%.3f,%.3f\n"%(t,xpos,t,ypos))
 
 class MyApp(wx.App):
 
@@ -143,15 +152,7 @@ class MyApp(wx.App):
 
         self.recFlag = False
         self.recFile = None
-        self.data = {}#use a dictionary of paired lists
-        # data := (trace) *
-        # trace := time [], val []
-        # time := (timeN)*
-        # val := (valN)*
-        # timeN := float
-        # valN := float
 
-        #wx.PostEvent(self.panel, wx.EVT_SIZE())
         return True
 
     def InitFrame(self):
@@ -185,13 +186,6 @@ class MyApp(wx.App):
         self.plot_sizer.Add(self.plotpanel, 1, wx.EXPAND)
         self.plot_container.SetSizer(self.plot_sizer)
 
-        #timer for dummy data updates
-        id = wx.NewId()
-        actor = self
-        self.timer = wx.Timer(actor, id=id)
-        self.timer.Start(500)
-        wx.EVT_TIMER(actor, id, self.OnData)
-
         self.statusBar.SetStatusText('attach accel., select directory, record')
         self.frame.Show(1)
         self.SetTopWindow(self.frame)
@@ -204,18 +198,6 @@ class MyApp(wx.App):
         self.frame.Bind(wx.EVT_MENU, self.OnQuit, id=xrc.XRCID("quitMenu"))
         self.frame.Bind(wx.EVT_MENU, self.OnRec, id=xrc.XRCID("recMenu"))
         self.frame.Bind(wx.EVT_MENU, self.OnDir, id=xrc.XRCID("dirMenu"))
-
-    def InitData(self):
-        """
-        prep data structure / get initial data values
-        """
-        self.plotpanel.data = {'test':{'time':[0,time.clock()],'val':[0,0]}}
-        # data := (trace) *
-        # trace := {time [], val []}
-        # time := (timeN)*
-        # val := (valN)*
-        # timeN := float
-        # valN := float
 
     def OnQuit(self, event):
         #wx.MessageBox('Quit Button: %s' % (repr(event)))
@@ -230,6 +212,9 @@ class MyApp(wx.App):
         """
         if self.recFlag:
             self.recFile.close()
+            self.plotpanel.data['meta']['dataPath'] = None
+            self.plotpanel.data['meta']['fileHandle'] = None
+            self.plotpanel.data['meta']['saveFlag'] = False
             self.recFlag = False
             self.statusBar.SetStatusText("idle")
             self.recButton.SetValue(False)
@@ -242,6 +227,9 @@ class MyApp(wx.App):
             dataFile = "capture-%s.txt"%(timestamp)
             dataPath = os.path.join(dataDir,dataFile)
             self.recFile = open(dataPath,'w')
+            self.plotpanel.data['meta']['dataPath'] = dataPath
+            self.plotpanel.data['meta']['fileHandle'] = self.recFile
+            self.plotpanel.data['meta']['saveFlag'] = True
             self.recFlag = True
             self.statusBar.SetStatusText("recording")
             self.recButton.SetValue(True)
@@ -262,10 +250,6 @@ class MyApp(wx.App):
         #b = self.dir_path.GetString(0,-1)
         #wx.MessageBox('Record Button: %s, %s' % (type(b),b))
 
-    def OnData(self, event):
-        pass
-        #self.plotpanel.data['test']['time'].append(time.clock())
-        #self.plotpanel.data['test']['val'].append(time.clock())
 
 if __name__ == '__main__':
     app = MyApp(0)
