@@ -68,26 +68,43 @@ class PlotPanel(wx.Panel):
         # val := (valN)*
         # timeN := float
         # valN := float
-        self.data['meta'] = {'saveFlag':False,'dataPath':None,'fileHandle':None}
-        self.data['mx'] = {'time':[0,time.clock()],'val':[0,0.0]}
-        self.data['my'] = {'time':[0,time.clock()],'val':[0,0.0]}
-        self.data['accel0'] = {'time':[0,time.clock()],'val':[0,0.0]}
-        self.data['accel1'] = {'time':[0,time.clock()],'val':[0,0.0]}
-        self.data['accel2'] = {'time':[0,time.clock()],'val':[0,0.0]}
+        self.data['meta'] = {'saveFlag':False,
+            'dataPath':None,
+            'fileHandle':None,
+            'sensors':[]}
+        #if 'Accelerometer' in globals():
+        try:
+            self.setup_accelerometer()
+            self.data['meta']['sensors'].append('accel')
+        except:
+            print 'accelerometer not setup'
+            self.data['meta']['sensors'].append('mouse')
+        #else:
+            #print 'no accelerometer, using mouse position'
 
-        self.axes.autoscale(enable=False)
-        maxTime = 0
-        for key in self.data.keys():
-            if 'meta' == key: continue
-            x = self.data[key]['time']
-            y = self.data[key]['val']
-            self.axes.plot(x,y)
-            if x[-1] > maxTime:
-                maxTime = x[-1]
-        self.axes.set_xlim((maxTime-5, maxTime))
-        self.axes.set_ylim((-2, 2))
+        print self.data['meta']['sensors']
 
-        #self.canvas = FigureCanvas(self, -1, self.figure)
+        if 'accel' in self.data['meta']['sensors']: 
+            print 'set initial accel data'
+            self.data['accel0'] = {'time':[0,time.clock()],'val':[0,0.0]}
+            self.data['accel1'] = {'time':[0,time.clock()],'val':[0,0.0]}
+            self.data['accel2'] = {'time':[0,time.clock()],'val':[0,0.0]}
+        if 'mouse' in self.data['meta']['sensors']: 
+            print 'set initial mouse data'
+            self.data['mx'] = {'time':[0,time.clock()],'val':[0,0.0]}
+            self.data['my'] = {'time':[0,time.clock()],'val':[0,0.0]}
+
+        #self.axes.autoscale(enable=False)
+        #maxTime = 0
+        #for key in self.data.keys():
+        #    if 'meta' == key: continue
+        #    x = self.data[key]['time']
+        #    y = self.data[key]['val']
+        #    self.axes.plot(x,y)
+        #    if x[-1] > maxTime:
+        #        maxTime = x[-1]
+        #self.axes.set_xlim((maxTime-5, maxTime))
+        #self.axes.set_ylim((-2, 2))
 
         wx.EVT_PAINT(self, self.OnPaint)
 
@@ -98,6 +115,7 @@ class PlotPanel(wx.Panel):
         wx.EVT_TIMER(actor, id, self.update_plot)
 
         wx.EVT_MOTION(self.canvas, self.mousify)
+
 
     def GetToolBar(self):
         # You will need to override GetToolBar if you are using an
@@ -132,7 +150,14 @@ class PlotPanel(wx.Panel):
             if 'meta' == key: continue
             x = self.data[key]['time']
             y = self.data[key]['val']
-            self.axes.plot(x,y)
+            try:
+                assert(len(x)==len(y))
+                self.axes.plot(x,y)
+            except Exception, e:
+                print "big trouble in little plot!"
+                print 'key:',key,'lenX',len(x),'lenY',len(y),len(x)==len(y)
+                print type(x),type(y)
+                raise e
             if x[-1] > maxTime:
                 maxTime = x[-1]
         self.axes.set_xlim((maxTime-5, maxTime))
@@ -141,6 +166,7 @@ class PlotPanel(wx.Panel):
         self.canvas.draw()
 
     def mousify(self, event):
+        if not 'mouse' in self.data['meta']['sensors']: return
         t = time.clock()
         xpos = -1*event.GetPositionTuple()[0]/100.0+2
         ypos = -1*event.GetPositionTuple()[1]/100.0+2
@@ -166,10 +192,10 @@ class PlotPanel(wx.Panel):
             self.accelerometer.setOnErrorhandler(self.AccelerometerError)
             self.accelerometer.setOnAccelerationChangeHandler(self.AccelerometerAccelerationChanged)
             self.accelerometer.openPhidget()
-            self.accelerometer.waitForAttach(1000)
-            self.accelerometer.setAccelChangeTrigger(0, 0.1)
-            self.accelerometer.setAccelChangeTrigger(1, 0.1)
-            self.accelerometer.setAccelChangeTrigger(2, 0.1)
+            self.accelerometer.waitForAttach(100)
+            self.accelerometer.setAccelChangeTrigger(0, 0.01)
+            self.accelerometer.setAccelChangeTrigger(1, 0.01)
+            self.accelerometer.setAccelChangeTrigger(2, 0.01)
         except RuntimeError, e:
             print "problem setting up accelerometer"
 
@@ -189,14 +215,24 @@ class PlotPanel(wx.Panel):
             print("Phidget Exception %i: %s" % (e.code, e.details))
 
     def AccelerometerAccelerationChanged(self, event):
+        if not 'accel' in self.data['meta']['sensors']: return
         source = event.device
 
         accelTime = time.clock()
         accelVal = event.acceleration
-        accelIndex = "accel%d"%(event.index)
-        self.data[accelIndex]['time'].append(accelTime)
-        self.data[accelIndex]['val'].append(accelVal)
+        accelIndex = event.index
+        accelLabel= "accel%d"%(accelIndex)
+        self.data[accelLabel]['time'].append(accelTime)
+        self.data[accelLabel]['val'].append(accelVal)
 
+        if self.data['meta']['saveFlag']:
+            fH = self.data['meta']['fileHandle']
+            if 0 == fH.tell():
+                #file is empty, write header
+                header = "datafile with raw accelerometer data\n--\n"
+                header += "Time,Channel,Value\n"
+                fH.write(header)
+            fH.write("%.3f,%d,%.3f\n"%(accelTime, accelIndex, accelVal))
 
 
 class MyApp(wx.App):
@@ -257,6 +293,7 @@ class MyApp(wx.App):
     def OnQuit(self, event):
         #wx.MessageBox('Quit Button: %s' % (repr(event)))
         self.frame.Close(True)
+        sys.exit()
 
     def OnRec(self, event):
         """
