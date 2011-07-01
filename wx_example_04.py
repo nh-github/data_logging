@@ -8,6 +8,17 @@ toolbar
 import wxversion
 wxversion.ensureMinimal('2.8')
 
+#Support for Phidgets libs
+from ctypes import *
+
+#Phidgets libs
+try:
+    from Phidgets.Phidget import Phidget
+    from Phidgets.PhidgetException import PhidgetErrorCodes, PhidgetException
+    from Phidgets.Events.Events import AccelerationChangeEventArgs, AttachEventArgs, DetachEventArgs, ErrorEventArgs
+    from Phidgets.Devices.Accelerometer import Accelerometer
+except:
+    print 'problem importing Phidgets libs'
 
 import matplotlib
 matplotlib.use('WXAgg')
@@ -21,6 +32,7 @@ import numpy as np
 from numpy import arange, sin, pi
 from numpy.random import rand
 
+import sys
 import time
 import wx
 
@@ -56,7 +68,6 @@ class MyNavigationToolbar(NavigationToolbar2WxAgg):
         self.canvas.draw()
         evt.Skip()
 
-
 class CanvasFrame(wx.Frame):
 
     def __init__(self):
@@ -77,11 +88,21 @@ class CanvasFrame(wx.Frame):
         self.mouseX = [0,0]
         self.mouseY = [0,0]
 
+        self.accelTx = [0,time.clock()]
+        self.accelX = [0,0]
+        self.accelTy = [0,time.clock()]
+        self.accelY = [0,0]
+        self.accelTz = [0,time.clock()]
+        self.accelZ = [0,0]
+
         self.axes.autoscale(enable=False)
         #self.axes.plot(self.x,self.y)
         #self.axes.set_xlim((self.x.min(), self.x.max()))
         self.axes.plot(self.mouseT,self.mouseX)
         self.axes.plot(self.mouseT,self.mouseY)
+        self.axes.plot(self.accelTx,self.accelX)
+        self.axes.plot(self.accelTy,self.accelY)
+        self.axes.plot(self.accelTz,self.accelZ)
         self.axes.set_xlim((self.mouseT[0], self.mouseT[-1]))
         self.axes.set_ylim((-2, 2))
 
@@ -111,6 +132,8 @@ class CanvasFrame(wx.Frame):
         wx.EVT_MOTION(self.canvas, self.mousify)
         #self.Bind(wx.EVT_MOTION, self.mousify)
         #self.canvas.Bind(wx.EVT_MOTION, self.mousify)
+
+        self.setup_accelerometer()
 
         self.toolbar = MyNavigationToolbar(self.canvas, True)
         self.toolbar.Realize()
@@ -161,10 +184,22 @@ class CanvasFrame(wx.Frame):
         self.mouseX.append(self.mouseX[-1])
         self.mouseY.append(self.mouseY[-1])
 
+        self.accelTx.append(time.clock())
+        self.accelX.append(self.accelX[-1])
+        self.accelTy.append(time.clock())
+        self.accelY.append(self.accelY[-1])
+        self.accelTz.append(time.clock())
+        self.accelZ.append(self.accelZ[-1])
+
+        #print len(self.accelTx), len(self.accelX)
+
         self.axes.clear()
         #self.axes.plot(self.x,self.y)
-        self.axes.plot(self.mouseT,self.mouseX)
-        self.axes.plot(self.mouseT,self.mouseY)
+        #self.axes.plot(self.mouseT,self.mouseX)
+        #self.axes.plot(self.mouseT,self.mouseY)
+        self.axes.plot(self.accelTx,self.accelX)
+        self.axes.plot(self.accelTy,self.accelY)
+        self.axes.plot(self.accelTz,self.accelZ)
         #self.axes.set_xlim((self.mouseT[0], self.mouseT[-1]))
         self.axes.set_xlim((time.clock()-5,time.clock()))
         self.axes.set_ylim((-2, 2))
@@ -173,13 +208,73 @@ class CanvasFrame(wx.Frame):
         #print self.mouseT
 
     def print_update_rate(self, event):
-        traceTime = self.mouseT[-1] - self.mouseT[0]
-        traceLength = len(self.mouseT)
-        longSampleRate = traceLength / traceTime
+        traceTimeX = self.accelTx[-1] - self.accelTx[0]
+        traceLengthX= len(self.accelTx)
+        print "trace: %d points, clock: %.3f"%(traceLengthX, traceTimeX)
+        return
+        traceTimeX = self.accelTx[-1] - self.accelTx[0]
+        traceTimeY = self.accelTy[-1] - self.accelTy[0]
+        traceTimeZ = self.accelTz[-1] - self.accelTz[0]
+        traceLengthX= len(self.accelTx)
+        longSampleRate = traceLengthX / traceTimeX
         sampleRate = 1.0/(self.mouseT[-1]-self.mouseT[-2])
         sampleRate2 = 5.0/(self.mouseT[-1]-self.mouseT[-6])
-        print "T: %.3f, #pts: %d, avg S/s: %.3f, S/s: %.3f"%(
-            traceTime, traceLength, longSampleRate, sampleRate2)
+        print "trace: %d points in %.3f seconds"%(traceTimeX, len(self.accelTx))
+        #print "T: %.3f, #pts: %d, avg S/s: %.3f, S/s: %.3f"%(
+        #    traceTime, traceLength, longSampleRate, sampleRate2)
+
+    def setup_accelerometer(self):
+        #Create an accelerometer object
+        try:
+            self.accelerometer = Accelerometer()
+            self.accelerometer.setOnAttachHandler(self.AccelerometerAttached)
+            self.accelerometer.setOnDetachHandler(self.AccelerometerDetached)
+            self.accelerometer.setOnErrorhandler(self.AccelerometerError)
+            self.accelerometer.setOnAccelerationChangeHandler(self.AccelerometerAccelerationChanged)
+            self.accelerometer.openPhidget()
+            self.accelerometer.waitForAttach(1000)
+            self.accelerometer.setAccelChangeTrigger(0, 0.1)
+            self.accelerometer.setAccelChangeTrigger(1, 0.1)
+            self.accelerometer.setAccelChangeTrigger(2, 0.1)
+        except RuntimeError, e:
+            print "problem setting up accelerometer"
+            #print("Runtime Exception: %s" % e.details)
+            #print("Exiting....")
+            #exit(1)
+
+    def AccelerometerAttached(self, event):
+        device = event.device
+        print("Accelerometer %i Attached!" % (device.getSerialNum()))
+
+    def AccelerometerDetached(self, event):
+        device = event.device
+        print("Accelerometer %i Detached!" % (device.getSerialNum()))
+
+    def AccelerometerError(self, e):
+        try:
+            source = e.device
+            print("Accelerometer %i: Phidget Error %i: %s" % (source.getSerialNum(), e.eCode, e.description))
+        except PhidgetException, e:
+            print("Phidget Exception %i: %s" % (e.code, e.details))
+
+    def AccelerometerAccelerationChanged(self, event):
+        source = event.device
+        #print("Accelerometer %i: Axis %i: %6f" % (source.getSerialNum(), event.index, event.acceleration))
+
+        if 0==event.index:
+        	self.accelTx.append(time.clock())
+        	self.accelX.append(event.acceleration)
+        	#print 'X'
+        if 1==event.index:
+        	self.accelTy.append(time.clock())
+        	self.accelY.append(event.acceleration)
+        	#print 'Y'
+        if 2==event.index:
+        	self.accelTz.append(time.clock())
+        	self.accelZ.append(event.acceleration)
+        	#print 'Z'
+        print len(self.accelTx), len(self.accelX), len(self.accelY), len(self.accelZ)
+
 
 class App(wx.App):
 
