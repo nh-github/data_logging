@@ -26,15 +26,23 @@
               <ratio>0</ratio>
             </object>
             <object class="sizeritem">
-              <object class="wxTextCtrl" name="dir_path"/>
-              <option>1</option>
-              <flag>wxALL|wxEXPAND|wxGROW</flag>
+              <object class="wxButton" name="dirBut">
+                <label>select Directory</label>
+              </object>
+              <flag>wxALL|wxEXPAND|wxGROW|wxALIGN_CENTRE_VERTICAL|wxALIGN_CENTRE_HORIZONTAL</flag>
               <border>5</border>
-              <ratio>1</ratio>
             </object>
           </object>
           <flag>wxEXPAND|wxGROW</flag>
           <ratio>0</ratio>
+        </object>
+        <object class="sizeritem">
+          <object class="wxTextCtrl" name="dir_path">
+            <style>wxTE_MULTILINE|wxTE_READONLY|wxTE_WORDWRAP</style>
+          </object>
+          <flag>wxALL|wxEXPAND|wxGROW</flag>
+          <border>5</border>
+          <minsize>40,40</minsize>
         </object>
         <object class="sizeritem">
           <object class="wxPanel" name="plotspace">

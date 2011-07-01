@@ -13,6 +13,8 @@ import sys
 import time
 import wx
 from wx import xrc
+from wx.lib import  filebrowsebutton 
+
 
 ERR_TOL = 1e-5 # floating point slop for peak-detection
 
@@ -91,7 +93,7 @@ class PlotPanel(wx.Panel):
 class MyApp(wx.App):
 
     def OnInit(self):
-        self.res = xrc.XmlResource('test_02.xrc')
+        self.res = xrc.XmlResource('xrc_test.xrc')
         self.init_frame()
         return True
 
@@ -101,14 +103,14 @@ class MyApp(wx.App):
         #self.text1 = xrc.XRCCTRL(self.panel, 'text1')
         #self.text2 = xrc.XRCCTRL(self.panel, 'text2')
         #self.frame.Bind(wx.EVT_BUTTON, self.OnSubmit, id=xrc.XRCID('button'))
-        self.quitButton = xrc.XRCCTRL(self.panel, 'qBut')
-        self.recButton = xrc.XRCCTRL(self.panel, 'rBut')
+        self.quitButton = xrc.XRCCTRL(self.panel, 'quitBut')
+        self.recButton = xrc.XRCCTRL(self.panel, 'recBut')
+        self.dirButton = xrc.XRCCTRL(self.panel, 'dirBut')
         self.frame.Bind(wx.EVT_BUTTON, self.OnQuit, self.quitButton)
         self.frame.Bind(wx.EVT_TOGGLEBUTTON, self.OnRec, self.recButton)
+        self.frame.Bind(wx.EVT_BUTTON, self.OnDir, self.dirButton)
 
         self.dir_path = xrc.XRCCTRL(self.panel, 'dir_path')
-        self.file_drop = FileDropTarget(self.dir_path)
-        self.dir_path.SetDropTarget(self.file_drop)
 
 
         #assemble plot
@@ -135,6 +137,22 @@ class MyApp(wx.App):
         #wx.MessageBox('Record Button: %s, %s' % (type(a),repr(a)))
         b = self.dir_path.GetString(0,-1)
         wx.MessageBox('Record Button: %s, %s' % (type(b),b))
+
+    def OnDir(self, event):
+        dlg = wx.DirDialog(self.frame, "Choose a directory:",
+            style=wx.DD_DEFAULT_STYLE
+            #| wx.DD_DIR_MUST_EXIST
+            #| wx.DD_CHANGE_DIR
+            )
+
+        if dlg.ShowModal() == wx.ID_OK:
+            self.dir_path.Clear()
+            self.dir_path.AppendText(dlg.GetPath()) 
+            #self.log.WriteText('You selected: %s\n' % dlg.GetPath())
+
+        #wx.MessageBox('Record Button: %s, %s' % (type(a),repr(a)))
+        #b = self.dir_path.GetString(0,-1)
+        #wx.MessageBox('Record Button: %s, %s' % (type(b),b))
 
 if __name__ == '__main__':
     app = MyApp(0)
