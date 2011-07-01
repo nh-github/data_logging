@@ -1,5 +1,9 @@
 #! /usr/bin/env python
 
+#Support for Phidgets libs
+#really?
+from ctypes import *
+
 import datetime
 import matplotlib
 matplotlib.use('WXAgg')
@@ -10,14 +14,22 @@ from matplotlib.figure import Figure
 import numpy as np
 
 import os
+
+#Phidgets libs
+try:
+    from Phidgets.Phidget import Phidget
+    from Phidgets.PhidgetException import PhidgetErrorCodes, PhidgetException
+    from Phidgets.Events.Events import AccelerationChangeEventArgs, AttachEventArgs, DetachEventArgs, ErrorEventArgs
+    from Phidgets.Devices.Accelerometer import Accelerometer
+except:
+    print 'problem importing Phidgets libs'
+
 import sys
 import time
 import wx
 from wx import xrc
 from wx.lib import  filebrowsebutton 
 
-
-ERR_TOL = 1e-5 # floating point slop for peak-detection
 
 
 class PlotPanel(wx.Panel):
@@ -59,9 +71,9 @@ class PlotPanel(wx.Panel):
         self.data['meta'] = {'saveFlag':False,'dataPath':None,'fileHandle':None}
         self.data['mx'] = {'time':[0,time.clock()],'val':[0,0.0]}
         self.data['my'] = {'time':[0,time.clock()],'val':[0,0.0]}
-        self.data['x'] = {'time':[0,time.clock()],'val':[0,0.0]}
-        self.data['y'] = {'time':[0,time.clock()],'val':[0,0.0]}
-        self.data['z'] = {'time':[0,time.clock()],'val':[0,0.0]}
+        self.data['accel0'] = {'time':[0,time.clock()],'val':[0,0.0]}
+        self.data['accel1'] = {'time':[0,time.clock()],'val':[0,0.0]}
+        self.data['accel2'] = {'time':[0,time.clock()],'val':[0,0.0]}
 
         self.axes.autoscale(enable=False)
         maxTime = 0
@@ -143,6 +155,49 @@ class PlotPanel(wx.Panel):
                 #file is empty, write header
                 header = "datafile with mouse data\n--\nT,X,T,Y\n"
             fH.write("%.3f,%.3f,%.3f,%.3f\n"%(t,xpos,t,ypos))
+
+    #this accelerometer stuff should be elsewhere, probably
+    def setup_accelerometer(self):
+        #Create an accelerometer object
+        try:
+            self.accelerometer = Accelerometer()
+            self.accelerometer.setOnAttachHandler(self.AccelerometerAttached)
+            self.accelerometer.setOnDetachHandler(self.AccelerometerDetached)
+            self.accelerometer.setOnErrorhandler(self.AccelerometerError)
+            self.accelerometer.setOnAccelerationChangeHandler(self.AccelerometerAccelerationChanged)
+            self.accelerometer.openPhidget()
+            self.accelerometer.waitForAttach(1000)
+            self.accelerometer.setAccelChangeTrigger(0, 0.1)
+            self.accelerometer.setAccelChangeTrigger(1, 0.1)
+            self.accelerometer.setAccelChangeTrigger(2, 0.1)
+        except RuntimeError, e:
+            print "problem setting up accelerometer"
+
+    def AccelerometerAttached(self, event):
+        device = event.device
+        print("Accelerometer %i Attached!" % (device.getSerialNum()))
+
+    def AccelerometerDetached(self, event):
+        device = event.device
+        print("Accelerometer %i Detached!" % (device.getSerialNum()))
+
+    def AccelerometerError(self, e):
+        try:
+            source = e.device
+            print("Accelerometer %i: Phidget Error %i: %s" % (source.getSerialNum(), e.eCode, e.description))
+        except PhidgetException, e:
+            print("Phidget Exception %i: %s" % (e.code, e.details))
+
+    def AccelerometerAccelerationChanged(self, event):
+        source = event.device
+
+        accelTime = time.clock()
+        accelVal = event.acceleration
+        accelIndex = "accel%d"%(event.index)
+        self.data[accelIndex]['time'].append(accelTime)
+        self.data[accelIndex]['val'].append(accelVal)
+
+
 
 class MyApp(wx.App):
 
