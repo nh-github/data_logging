@@ -15,6 +15,7 @@
 #include "HTU21D.h"
 #include "TSL2561.h"
 #include <Adafruit_L3GD20.h>
+#include <Adafruit_LSM303.h>
 
 
 // Light sensor, address can be 
@@ -26,6 +27,9 @@ HTU21D htu;
 
 // L3GD20 tri-axis gyroscope
 Adafruit_L3GD20 gyro;
+
+// LSM303 tri-axis accelerometer/magnetometer
+Adafruit_LSM303 lsm;
 
 void data_output();
 
@@ -48,11 +52,14 @@ void setup()
     Serial.print(".PROBLEM!/n");
   }
   Serial.print("Setup: Gyroscope..");
-  counter = 5;
-  while(!gyro.begin(gyro.L3DS20_RANGE_250DPS) && counter-- > 0){
-    Serial.print(":");
+  if (gyro.begin(gyro.L3DS20_RANGE_250DPS)) {
+    Serial.print(".ok\n");
+  } 
+  else {
+    Serial.print(".PROBLEM!/n");
   }
-  if (counter == 0) {
+  Serial.print("Setup: Accel/Mag..");
+  if (lsm.begin()) {
     Serial.print(".ok\n");
   } 
   else {
@@ -73,12 +80,25 @@ void loop()
   // START
   Serial.print("#MFB\n");  // mark frame start
 
-    //*****
+  //*****
   // LIGHT / TSL2561
   label = "visible light";
   units = "counts";
   value = tsl.getLuminosity(TSL2561_VISIBLE);
   // also available: TSL2561_FULLSPECTRUM, TSL2561_INFRARED
+
+  Serial.print(label + ": ");
+  Serial.print(value);
+  Serial.print(", ");
+  Serial.print(factor);
+  Serial.print(" (" + units + ")\n");
+  //*****
+
+
+  // Time
+  label = "time";
+  units = "milliseconds";
+  value = millis();
 
   Serial.print(label + ": ");
   Serial.print(value);
@@ -116,11 +136,11 @@ void loop()
 
   //*****
   // Rotation / L3GD20
-  gyro.read();  // update data
   label = "rotation";
   units = "degree per second";
   value = -1;
   factor = 1;
+  gyro.read();  // update data
 
   Serial.print(label + " X" + ": ");
   Serial.print(gyro.data.x);
@@ -145,11 +165,51 @@ void loop()
   // Acceleration / LSM303
   label = "acceleration";
   units = "m/s";
-  value = -1  // lsm.();
+  value = -1;  // lsm.();
   factor = 1;
+  lsm.read();  // gather an update
 
-  Serial.print(label + ": ");
-  Serial.print(value );
+  Serial.print(label + " X" + ": ");
+  Serial.print(lsm.accelData.x);
+  Serial.print(", ");
+  Serial.print(factor);
+  Serial.print(" (" + units + ")\n");
+
+  Serial.print(label + " Y" + ": ");
+  Serial.print(lsm.accelData.y);
+  Serial.print(", ");
+  Serial.print(factor);
+  Serial.print(" (" + units + ")\n");
+
+  Serial.print(label + " Z" + ": ");
+  Serial.print(lsm.accelData.z);
+  Serial.print(", ");
+  Serial.print(factor);
+  Serial.print(" (" + units + ")\n");
+
+
+  //*****
+  // Magnetometer / LSM303
+  label = "magnetic field";
+  units = "[?]";
+  value = -1;  // lsm.();
+  factor = 1;
+  //lsm.read();  // use update from above (acceleration)
+
+  Serial.print(label + " X" + ": ");
+  Serial.print(lsm.magData.x);
+  Serial.print(", ");
+  Serial.print(factor);
+  Serial.print(" (" + units + ")\n");
+
+  Serial.print(label + " Y" + ": ");
+  Serial.print(lsm.magData.y);
+  Serial.print(", ");
+  Serial.print(factor);
+  Serial.print(" (" + units + ")\n");
+
+  Serial.print(label + " Z" + ": ");
+  Serial.print(lsm.magData.z);
   Serial.print(", ");
   Serial.print(factor);
   Serial.print(" (" + units + ")\n");
@@ -279,6 +339,7 @@ void light_get_lux(){
 //  //  Serial.print(el.units);
 //  //  Serial.print("\n");
 //}
+
 
 
 
