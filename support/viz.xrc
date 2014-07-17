@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resource>
+  <object class="wxFrame" name="FRAME1">
+    <title>Accelerometer Logging</title>
+    <size>400,400</size>
+    <object class="wxPanel" name="panel1">
+      <object class="wxBoxSizer">
+        <orient>wxVERTICAL</orient>
+        <object class="sizeritem">
+          <object class="wxBoxSizer">
+            <orient>wxHORIZONTAL</orient>
+            <object class="sizeritem">
+              <object class="wxButton" name="quitBut">
+                <label>quit</label>
+              </object>
+              <flag>wxALL|wxEXPAND|wxGROW</flag>
+              <border>5</border>
+              <ratio>0</ratio>
+            </object>
+            <object class="sizeritem">
+              <object class="wxToggleButton" name="recBut">
+                <label>record</label>
+              </object>
+              <flag>wxALL|wxEXPAND|wxGROW</flag>
+              <border>5</border>
+              <ratio>0</ratio>
+            </object>
+            <object class="sizeritem">
+              <object class="wxButton" name="dirBut">
+                <label>select Directory</label>
+              </object>
+              <flag>wxALL|wxEXPAND|wxGROW|wxALIGN_CENTRE_VERTICAL|wxALIGN_CENTRE_HORIZONTAL</flag>
+              <border>5</border>
+            </object>
+          </object>
+          <flag>wxEXPAND|wxGROW</flag>
+          <ratio>0</ratio>
+        </object>
+        <object class="sizeritem">
+          <object class="wxTextCtrl" name="dir_path">
+            <style>wxTE_MULTILINE|wxTE_READONLY|wxTE_WORDWRAP</style>
+          </object>
+          <flag>wxALL|wxEXPAND|wxGROW</flag>
+          <border>5</border>
+          <minsize>40,40</minsize>
+        </object>
+        <object class="sizeritem">
+          <object class="wxPanel" name="plotspace">
+            <style>wxSUNKEN_BORDER</style>
+          </object>
+          <option>1</option>
+          <flag>wxALL|wxEXPAND|wxGROW|wxALIGN_CENTRE_VERTICAL|wxALIGN_CENTRE_HORIZONTAL</flag>
+          <border>5</border>
+          <ratio>1</ratio>
+        </object>
+      </object>
+    </object>
+    <object class="wxMenuBar">
+      <object class="wxMenu" name="fileMenu">
+        <label>File</label>
+        <object class="wxMenuItem" name="dirMenu">
+          <label>Output Dir</label>
+          <bitmap stock_id="wxART_FOLDER"></bitmap>
+          <accel>ctrl-d</accel>
+        </object>
+        <object class="wxMenuItem" name="recMenu">
+          <label>Record</label>
+          <bitmap stock_id="wxART_EXECUTABLE_FILE"></bitmap>
+          <accel>ctrl-r</accel>
+          <checkable>1</checkable>
+        </object>
+        <object class="wxMenuItem" name="quitMenu">
+          <label>Quit</label>
+          <bitmap stock_id="wxART_QUIT"></bitmap>
+          <accel>ctrl-q</accel>
+        </object>
+      </object>
+    </object>
+  </object>
+</resource>
