@@ -81,7 +81,7 @@ class JBC(wx.Frame):
         print "Tried to redraw"
 
 
-class data_aquisition_tool():
+class data_aquisition_tool__serial():
     def port_scan(self):
         ser = serial.Serial()
         for port in self.port_list():
@@ -139,8 +139,30 @@ class data_aquisition_tool():
             # Assume Linux or something else
             return glob.glob('/dev/ttyS*') + glob.glob('/dev/ttyUSB*')
 
-    def foo(self):
-        pass
+    def next_frame(self, serial_port):
+        """
+        decode data between one set of begin/end markers
+
+        return in the form of a dictionary keyed by datapoint labels
+        """
+        df = self.read_data_frame(serial_port)
+        data = {}
+        for datum in df:
+            if len(datum) < 1:
+                continue
+            if "#MF" in datum:
+                continue
+            label, line = datum.split(":")
+            values, units = line.split("(")
+            value, scale = values.split(",")
+            value = float(value)
+            units = units[:-2]
+            data[label] = (value, units)
+        return data
+
+
+class data_aquisition_tool(data_aquisition_tool__serial):
+    pass
 
 
 class PlotPanel(wx.Panel):
@@ -183,18 +205,26 @@ class PlotPanel(wx.Panel):
                              'dataPath': None,
                              'fileHandle': None,
                              'sensors': []}
-        #if 'Accelerometer' in globals():
         try:
-            self.setup_accelerometer()
-            self.data['meta']['sensors'].append('accel')
+            self.setup_data_DAQ()
+            self.data['meta']['sensors'].append('multiDAQ')
+            #self.setup_accelerometer()
+            #self.data['meta']['sensors'].append('accel')
         except:
-            print 'accelerometer not setup'
+            print 'external data source not setup'
             self.data['meta']['sensors'].append('mouse')
         #else:
             #print 'no accelerometer, using mouse position'
 
         print self.data['meta']['sensors']
 
+        if 'multiDAQ' in self.data['meta']['sensors']:
+            df = self.daq.next_frame(self.daq_port)
+            for label in df:
+                print label,
+                print df[label][0]
+                self.data[label] = {'time': [0, time.clock()],
+                                    'val': [0, df[label][0]]}
         if 'accel' in self.data['meta']['sensors']:
             print 'set initial accel data'
             self.data['accel0'] = {'time': [0, time.clock()],
@@ -265,6 +295,8 @@ class PlotPanel(wx.Panel):
         for key in self.data.keys():
             if 'meta' == key:
                 continue
+            if "accel" not in key:  # TODO: ignoring various sensors
+                continue
             x = self.data[key]['time']
             y = self.data[key]['val']
             try:
@@ -303,6 +335,39 @@ class PlotPanel(wx.Panel):
             fH.write("%.3f,%.3f,%.3f,%.3f\n" % (t, xpos, t, ypos))
 
     #this accelerometer stuff should be elsewhere, probably
+    def setup_data_DAQ(self):
+        """
+        create and initialize data source
+        """
+        #TODO: move this to the DataAquisitionApp class
+        try:
+            self.daq = data_aquisition_tool()
+            self.daq_port = self.daq.port_scan()
+            # timer for gathering new data
+            self.daq_timer = wx.Timer(self)
+            self.Bind(wx.EVT_TIMER, self.update_data_DAQ, self.daq_timer)
+            self.daq_timer.Start(100)
+
+        except RuntimeError, e:
+            print "problem setting data source", e
+
+    def update_data_DAQ(self, event):
+        """
+        adapter to move data from daq tool frame to internal data
+        """
+        if not "multiDAQ" in self.data['meta']['sensors']:
+            return
+        # TODO: check how host and embedded clocks drift
+        host_time = time.clock()
+        df = self.daq.next_frame(self.daq_port)
+        host_time = host_time
+        frame_time = host_time  # update to use DataFrame time
+        for label in df:
+            #print label,
+            #print df[label][0]
+            self.data[label] = {'time': [0, frame_time],
+                                'val': [0, df[label][0]]}
+
     def setup_accelerometer(self):
         #Create an accelerometer object
         try:
@@ -367,7 +432,7 @@ class DataAquisitionApp(wx.App):
     """
 
     def OnInit(self):
-        self.res = xrc.XmlResource('xrc_test.xrc')
+        self.res = xrc.XmlResource('viz.xrc')
         self.InitFrame()
 
         self.recFlag = False
@@ -480,8 +545,10 @@ def main():
     print("DEBUG: reading from serial port %s..." % daq_port.port)
 
     df = daq.read_data_frame(daq_port)
-    print df
-    plt == plt
+    #print df
+    data = daq.next_frame(daq_port)
+    df = df
+    data = data
 
 if "__main__" == __name__:
     #main()  # non-wx developmental code
