@@ -71,6 +71,21 @@ void setup()
 }
 void loop() 
 {
+  tsl.setGain(TSL2561_GAIN_0X);
+  tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  //opt: 101, 402
+  Serial.print(htu.readTemperature());
+//  Serial.print(tsl.getLuminosity(TSL2561_VISIBLE));
+//  Serial.print(",");
+//  Serial.print(tsl.getLuminosity(TSL2561_INFRARED));
+//  Serial.print(",");
+//  Serial.print(tsl.getLuminosity(TSL2561_FULLSPECTRUM));
+  // also available: TSL2561_FULLSPECTRUM, TSL2561_INFRARED
+
+  Serial.print("\n");
+  delay(100); 
+}
+
+void send_data_frame(){
   String label = "measure";
   String units = "units";
   float value = -1;
