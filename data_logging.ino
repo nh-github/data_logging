@@ -9,13 +9,36 @@
  * SDA (yellow): A4 w/ inline 330 ohm resistor
  ****************************************************/
 
+/*
+ * Arrangement:
+ * lib for sensor code 
+ * lib for (serial) IO code
+ * arduino program to call the lib(s)
+ * Note data to include:
+ * frame number, frame time start, <data>, frame time end
+ * maybe single line, maybe multiple
+ */
+
+#include <serial_interface.h>
+#include <StandardCplusplus.h>
+#include <serstream>
+#include <string>
+#include <vector>
+#include <iterator>
+
+serial_sensor_data sensors;
+
+/*
 #include <Wire.h> 
-#include <Adafruit_L3GD20.h>
-#include <Adafruit_LSM303.h>
-#include "HTU21D.h"
-#include "TSL2561.h"
-#include <Adafruit_L3GD20.h>
-#include <Adafruit_LSM303.h>
+ #include <Adafruit_L3GD20.h>
+ #include <Adafruit_LSM303.h>
+ #include "HTU21D.h"
+ #include "TSL2561.h"
+ #include <Adafruit_L3GD20.h>
+ #include <Adafruit_LSM303.h>
+ */
+// frame index
+unsigned long frame_index = 0;
 
 
 // Light sensor, address can be 
@@ -31,58 +54,123 @@ Adafruit_L3GD20 gyro;
 // LSM303 tri-axis accelerometer/magnetometer
 Adafruit_LSM303 lsm;
 
-void data_output();
+//void data_output();
 
 void setup() 
 {
   Serial.begin(115200);
+  //sensors.init();
+  tsl.begin();
+  htu.begin();
+  gyro.begin(gyro.L3DS20_RANGE_250DPS);
+  lsm.begin();
+
+  Serial.print("frame_index");
+  Serial.print(",");
+  Serial.print("time");
+  Serial.print(",");
+  print_header();
+  Serial.print("time");
+  Serial.print("\n");
+  /*
   int counter = 0;
-  Serial.print("Setup: Light sensor..");
-  if (tsl.begin()) {
-    Serial.print(".ok\n");
-  } 
-  else {
-    Serial.print(".PROBLEM!/n");
-  }
-  Serial.print("Setup: Humidity sensor..");
-  if (htu.begin()) {
-    Serial.print(".ok\n");
-  } 
-  else {
-    Serial.print(".PROBLEM!/n");
-  }
-  Serial.print("Setup: Gyroscope..");
-  if (gyro.begin(gyro.L3DS20_RANGE_250DPS)) {
-    Serial.print(".ok\n");
-  } 
-  else {
-    Serial.print(".PROBLEM!/n");
-  }
-  Serial.print("Setup: Accel/Mag..");
-  if (lsm.begin()) {
-    Serial.print(".ok\n");
-  } 
-  else {
-    Serial.print(".PROBLEM!/n");
-  }
-
-  delay(200); 
-
+   Serial.print("Setup: Light sensor..");
+   if (tsl.begin()) {
+   Serial.print(".ok\n");
+   } 
+   else {
+   Serial.print(".PROBLEM!/n");
+   }
+   Serial.print("Setup: Humidity sensor..");
+   if (htu.begin()) {
+   Serial.print(".ok\n");
+   } 
+   else {
+   Serial.print(".PROBLEM!/n");
+   }
+   Serial.print("Setup: Gyroscope..");
+   if (gyro.begin(gyro.L3DS20_RANGE_250DPS)) {
+   Serial.print(".ok\n");
+   } 
+   else {
+   Serial.print(".PROBLEM!/n");
+   }
+   Serial.print("Setup: Accel/Mag..");
+   if (lsm.begin()) {
+   Serial.print(".ok\n");
+   } 
+   else {
+   Serial.print(".PROBLEM!/n");
+   }
+   
+   delay(20); 
+   */
 }
 void loop() 
 {
-  tsl.setGain(TSL2561_GAIN_0X);
-  tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  //opt: 101, 402
-  Serial.print(htu.readTemperature());
-//  Serial.print(tsl.getLuminosity(TSL2561_VISIBLE));
-//  Serial.print(",");
-//  Serial.print(tsl.getLuminosity(TSL2561_INFRARED));
-//  Serial.print(",");
-//  Serial.print(tsl.getLuminosity(TSL2561_FULLSPECTRUM));
-  // also available: TSL2561_FULLSPECTRUM, TSL2561_INFRARED
+  if (Serial.available()){
+    sensors.update_config();
+  }
+  sensors.repeating(millis());
+  Serial.print(frame_index++);
+  Serial.print(",");
+  Serial.print(millis());
+  Serial.print(",");
+  //Serial.print("loop\n");
+  //Serial.print(",");
+  print_frame();
+  Serial.print(millis());
+  delay(100);
+}
 
-  Serial.print("\n");
-  delay(100); 
+void print_header(){
+  Serial.print("tsl.getLuminosity(TSL2561_VISIBLE)");
+  Serial.print(",");
+  Serial.print("htu.readHumidity()");
+  Serial.print(",");
+  Serial.print("htu.readTemperature()");
+  Serial.print(",");
+  gyro.read();  // update data
+  lsm.read();  // gather an update
+  Serial.print("gyro.data.x");
+  Serial.print(",");
+  Serial.print("lsm.accelData.x");
+  Serial.print(",");
+  Serial.print("lsm.magData.x");
+  Serial.print(",");
+}
+void print_frame(){
+  Serial.print(tsl.getLuminosity(TSL2561_VISIBLE));
+  Serial.print(",");
+  Serial.print(htu.readHumidity());
+  Serial.print(",");
+  Serial.print(htu.readTemperature());
+  Serial.print(",");
+  gyro.read();  // update data
+  lsm.read();  // gather an update
+  Serial.print(gyro.data.x);
+  Serial.print(",");
+  Serial.print(lsm.accelData.x);
+  Serial.print(",");
+  Serial.print(lsm.magData.x);
+  Serial.print(",");
+}
+
+void noloop() 
+{
+  send_data_frame();
+  //  tsl.setGain(TSL2561_GAIN_0X);
+  //  tsl.setTiming(TSL2561_INTEGRATIONTIME_13MS);  //opt: 101, 402
+  //  Serial.print(htu.readTemperature());
+  //  Serial.print(tsl.getLuminosity(TSL2561_VISIBLE));
+  //  Serial.print(",");
+  //  Serial.print(tsl.getLuminosity(TSL2561_INFRARED));
+  //  Serial.print(",");
+  //  Serial.print(tsl.getLuminosity(TSL2561_FULLSPECTRUM));
+  // also available: TSL2561_FULLSPECTRUM, TSL2561_INFRARED
+  //  Serial.print("\n");
+
+  delay(500); 
 }
 
 void send_data_frame(){
@@ -94,6 +182,30 @@ void send_data_frame(){
   //*****
   // START
   Serial.print("#MFB\n");  // mark frame start
+
+    // Time
+  label = "index";
+  units = "frame count";
+  value = frame_index++;
+
+  Serial.print(label + ": ");
+  Serial.print(value);
+  Serial.print(", ");
+  Serial.print(factor);
+  Serial.print(" (" + units + ")\n");
+
+
+  // Time
+  label = "time";
+  units = "milliseconds";
+  value = millis();
+
+  Serial.print(label + ": ");
+  Serial.print(value);
+  Serial.print(", ");
+  Serial.print(factor);
+  Serial.print(" (" + units + ")\n");
+
 
   //*****
   // LIGHT / TSL2561
@@ -108,18 +220,6 @@ void send_data_frame(){
   Serial.print(factor);
   Serial.print(" (" + units + ")\n");
   //*****
-
-
-  // Time
-  label = "time";
-  units = "milliseconds";
-  value = millis();
-
-  Serial.print(label + ": ");
-  Serial.print(value);
-  Serial.print(", ");
-  Serial.print(factor);
-  Serial.print(" (" + units + ")\n");
 
 
   //*****
@@ -152,7 +252,7 @@ void send_data_frame(){
   //*****
   // Rotation / L3GD20
   label = "rotation";
-  units = "degree per second";
+  units = "arb units";  // "degree per second";
   value = -1;
   factor = 1;
   gyro.read();  // update data
@@ -179,7 +279,7 @@ void send_data_frame(){
   //*****
   // Acceleration / LSM303
   label = "acceleration";
-  units = "m/s";
+  units = "arb units";  // "m/s";
   value = -1;  // lsm.();
   factor = 1;
   lsm.read();  // gather an update
@@ -206,7 +306,7 @@ void send_data_frame(){
   //*****
   // Magnetometer / LSM303
   label = "magnetic field";
-  units = "[?]";
+  units = "arb units";  // "gauss";
   value = -1;  // lsm.();
   factor = 1;
   //lsm.read();  // use update from above (acceleration)
@@ -274,6 +374,58 @@ void light_get_lux(){
   Serial.println(tsl.calculateLux(full, ir));
 }
 
+/*
+void send_frame(int mode){
+ if(0==mode){
+ Serial.print("labels:");
+ send_foo(mode);
+ Serial.print(",");
+ Serial.print("\n");
+ }
+ elif(1=mode){
+ }
+ elif(2=mode){
+ }
+ else{
+ }
+ }
+ 
+ void send_foo(int mode){
+ if(0==mode){
+ Serial.print("foo measurement label");
+ }
+ elif(1=mode){
+ Serial.print("no units");
+ }
+ elif(2=mode){
+ // get measurement data and print binary representation
+ Serial.print("666f6f2064617461");
+ //Serial.print("66 6f 6f 20 64 61 74 61");
+ }
+ else{
+ // get measurement data and print it as text
+ Serial.print("foo data");
+ }
+ }
+ 
+ void send_bar(int mode){
+ if(0==mode){
+ Serial.print("bar");
+ }
+ elif(1=mode){
+ Serial.print("no units");
+ }
+ elif(2=mode){
+ // get measurement data and print binary representation
+ Serial.print("7b");
+ //Serial.print("66 6f 6f 20 64 61 74 61");
+ }
+ else{
+ // get measurement data and print it as text
+ Serial.print("123");
+ }
+ }
+ */
 
 //********************************************
 // OLD and busted
@@ -354,6 +506,13 @@ void light_get_lux(){
 //  //  Serial.print(el.units);
 //  //  Serial.print("\n");
 //}
+
+
+
+
+
+
+
 
 
 
